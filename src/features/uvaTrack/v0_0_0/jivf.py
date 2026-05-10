@@ -1,156 +1,162 @@
 """
-CloudEdgeManager 工具入口 — CTest 类
+边缘服务器 uvaTrack 工具入口 — CTest 类
 平台通过 ProcessTask 调用 subfuncs 中定义的方法，每个方法接收 params 字典。
 
+架构变更:
+  无人机不再直接连接边缘服务器，而是先连接类脑盒子（BrainBox），
+  类脑盒子再将数据上报到边缘服务器。设备表与类脑盒子绑定。
+
+  ┌────────────────┐     HTTP/POST     ┌──────────────┐     MAVLink      ┌──────────┐
+  │  边缘控制服务   │ ◄──────────────► │  类脑盒子     │ ◄──────────────► │  无人机   │
+  │  Edge Server   │                   │  BrainBox    │                   │  Drones  │
+  └────────────────┘                   └──────────────┘                   └──────────┘
+
 支持的子功能:
-  add_server          注册计算服务器节点到云端调度池
-  remove_server       从调度池中安全移除指定服务器
-  list_servers        获取可用的计算服务器列表及当前负载状态
-  add_device          注册边缘设备（如机器狗、无人车）到管控系统
-  remove_device       从系统中注销边缘设备
-  list_devices        获取已注册的边缘设备列表及在线状态
-  assign_and_start_task  核心调度：指定边缘设备连接特定服务器执行计算任务
-  stop_task           中断指定设备与服务器之间的任务和数据流
 
-扩展接口:
-  heartbeat           设备/服务器心跳上报（支持自动识别和添加）
-  get_device_info     获取设备详细信息（含流通道、遥测）
-  get_task_info       查询任务详情（含计算结果）
-  update_location     设备位置上报
+  类脑盒子管理:
+    add_brain_box         注册类脑盒子实例到边缘服务器
+    remove_brain_box      移除类脑盒子实例
+    list_brain_boxes      获取已注册的类脑盒子列表
+    get_brain_box_status  查询类脑盒子详细状态（远程调用）
 
-通用数据交互接口:
-  submit_task_result       服务器提交任务计算结果（类型+载荷由调用方定义）
-  update_device_telemetry  设备/服务器上报遥测数据（类型+数据由调用方定义）
+  数据接收（类脑盒子 → 边缘服务器）:
+    heartbeat             接收类脑盒子心跳上报
+    drone_report          接收无人机状态上报
+    trajectory_report     接收导航轨迹上报
+
+  指令转发（边缘服务器 → 类脑盒子）:
+    scan_drones           转发扫描指令到类脑盒子
+    query_drones          转发查询指令到类脑盒子
+    send_command          转发控制指令到类脑盒子
+
+  导航任务:
+    navigation_instruction  下发导航指令（经由类脑盒子到无人机）
+    execute_trajectory      转发轨迹执行指令
+
+  设备查询:
+    list_devices          获取所有已知无人机设备列表
+    get_device_info       获取设备详细信息
+    list_tasks            查询导航任务列表
 
 --- params JSON 格式示例 ---
 
-add_server:
+add_brain_box:
 {
-    "server_id": "svr_node_01",
-    "ip_address": "192.168.1.100",
-    "capacity": 5,
-    "tags": ["gpu", "path_planning"]
+    "box_id": "brain_box_001",
+    "ip_address": "192.168.1.50",
+    "port": 9000
 }
 
-remove_server:
+remove_brain_box:
 {
-    "server_id": "svr_node_01",
-    "force_stop": true
+    "box_id": "brain_box_001"
 }
 
-list_servers:
+list_brain_boxes:
+{}
+
+heartbeat (类脑盒子上报):
 {
-    "filter_by_status": "active"
+    "box_id": "brain_box_001",
+    "timestamp": 1715340000.123,
+    "status": "running",
+    "drone_count": 3,
+    "online_count": 3,
+    "ip_address": "192.168.1.50",
+    "port": 9000
 }
 
-add_device:
+drone_report (类脑盒子上报):
 {
-    "device_id": "robot_dog_nx_01",
-    "hardware_type": "jetson_xavier_nx",
-    "is_simulated": false,
-    "supported_streams": ["video", "lidar_point_cloud"]
+    "box_id": "brain_box_001",
+    "timestamp": 1715340000.123,
+    "devices": [
+        {
+            "device_id": "drone_sim_0",
+            "device_type": "quadcopter",
+            "protocol": "mavlink",
+            "status": "online",
+            "position": {"latitude": 39.9042, "longitude": 116.4074, "altitude": 100.0}
+        }
+    ]
 }
 
-remove_device:
+trajectory_report (类脑盒子上报):
 {
-    "device_id": "robot_dog_nx_01"
+    "box_id": "brain_box_001",
+    "timestamp": 1715340000.123,
+    "trajectory": {
+        "trajectory_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "device_id": "drone_sim_0",
+        "waypoints": [...],
+        "algorithm_name": "simple_linear",
+        "total_distance": 1287.45,
+        "estimated_time": 160.93
+    }
+}
+
+scan_drones:
+{
+    "box_id": "brain_box_001"
+}
+
+query_drones:
+{
+    "box_id": "brain_box_001",
+    "device_id": "drone_sim_0"
+}
+
+send_command:
+{
+    "box_id": "brain_box_001",
+    "device_id": "drone_sim_0",
+    "command": {
+        "type": "takeoff",
+        "altitude": 50.0
+    }
+}
+
+navigation_instruction:
+{
+    "box_id": "brain_box_001",
+    "instruction_id": "nav_20240510_001",
+    "device_id": "drone_sim_0",
+    "target_position": {
+        "latitude": 39.91,
+        "longitude": 116.42,
+        "altitude": 120.0
+    },
+    "algorithm": "simple_linear",
+    "parameters": {
+        "step_count": 5,
+        "speed": 8.0
+    }
+}
+
+execute_trajectory:
+{
+    "box_id": "brain_box_001",
+    "trajectory_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 }
 
 list_devices:
 {
-    "group_id": "all"
-}
-
-assign_and_start_task:
-{
-    "device_id": "robot_dog_nx_01",
-    "server_id": "svr_node_01",
-    "task_config": {
-        "algorithm": "a_star_optimized",
-        "frequency_hz": 10,
-        "enable_video_stream": true,
-        "stream_port": 8554,
-        "custom_payloads": {
-            "map_resolution": 0.05,
-            "enable_local_slm": true,
-            "start_point": {"lat": 30.27, "lng": 120.15, "alt": 10.0},
-            "end_point": {"lat": 30.28, "lng": 120.16, "alt": 10.0},
-            "nav_params": {"obstacle_avoidance": true, "max_speed_m_s": 5.0}
-        }
-    }
-}
-
-stop_task:
-{
-    "device_id": "robot_dog_nx_01",
-    "reason": "user_manual_stop"
-}
-
-heartbeat (设备自动注册示例):
-{
-    "target_type": "device",
-    "target_id": "robot_dog_nx_01",
-    "location": {"lat": 30.27, "lng": 120.15, "alt": 5.0},
-    "metadata": {
-        "hardware_type": "jetson_xavier_nx",
-        "supported_streams": ["video", "lidar_point_cloud"]
-    }
-}
-
-heartbeat (服务器):
-{
-    "target_type": "server",
-    "target_id": "svr_node_01"
+    "box_id": "all"
 }
 
 get_device_info:
 {
-    "device_id": "robot_dog_nx_01"
+    "device_id": "drone_sim_0"
 }
 
-get_task_info:
+list_tasks:
 {
-    "task_id": "task_a1b2c3d4e5f6"
+    "box_id": "all"
 }
 
-update_location:
+get_brain_box_status:
 {
-    "device_id": "robot_dog_nx_01",
-    "location": {"lat": 30.27, "lng": 120.15, "alt": 5.0}
-}
-
-submit_task_result:
-{
-    "task_id": "task_a1b2c3d4e5f6",
-    "result_type": "trajectory",
-    "payload": {
-        "waypoints": [
-            {"lat": 30.270, "lng": 120.150, "alt": 10.0, "seq": 0, "speed_m_s": 3.0},
-            {"lat": 30.275, "lng": 120.155, "alt": 10.0, "seq": 1, "speed_m_s": 5.0},
-            {"lat": 30.280, "lng": 120.160, "alt": 10.0, "seq": 2, "speed_m_s": 3.0}
-        ],
-        "total_distance_m": 1200.5,
-        "estimated_time_s": 240.0,
-        "algorithm_used": "a_star_optimized"
-    },
-    "metadata": {"source": "brain_box_01"}
-}
-
-update_device_telemetry:
-{
-    "device_id": "robot_dog_nx_01",
-    "telemetry_type": "drone_status",
-    "data": {
-        "position": {"lat": 30.271, "lng": 120.151, "alt": 10.2},
-        "velocity": {"vx": 1.2, "vy": 0.5, "vz": 0.0},
-        "attitude": {"roll": 0.01, "pitch": -0.02, "yaw": 1.57},
-        "battery_pct": 85.0,
-        "flight_mode": "GUIDED",
-        "armed": true,
-        "gps_fix_type": 3,
-        "satellites_visible": 12
-    },
-    "metadata": {"source": "mavlink"}
+    "box_id": "brain_box_001"
 }
 """
 import os
@@ -162,7 +168,7 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 if _current_dir not in sys.path:
     sys.path.insert(0, _current_dir)
 
-from core.manager import CloudEdgeManager
+from core.manager import EdgeManager
 from config.settings import settings
 from utils.logger import setup_logging
 
@@ -171,7 +177,7 @@ logger = setup_logging("uvaTrack")
 
 class CTest:
     """
-    云边协同管控工具入口类。
+    边缘服务器 uvaTrack 工具入口类。
 
     由平台框架通过 _load_train_version 自动实例化，
     每个公开方法对应 toolconfig.yml 中的一个 subfunc。
@@ -183,55 +189,37 @@ class CTest:
         self.proc_modules_obj = proc_modules_obj
         self.progress_callback = progress_callback
 
-        # 从配置中读取参数
         heartbeat_cfg = node_cfg.get("heartbeat_config", {})
-        storage_cfg = node_cfg.get("storage_config", {})
-        
-        # 配置存储路径
-        if storage_cfg:
-            settings.set_storage_paths(
-                tasks_dir=storage_cfg.get("tasks_dir"),
-                results_dir=storage_cfg.get("results_dir"),
-                telemetry_dir=storage_cfg.get("telemetry_dir"),
-                logs_dir=storage_cfg.get("logs_dir"),
-            )
-        
-        # 配置心跳参数
+
         settings.set_heartbeat_config(
             check_interval_s=heartbeat_cfg.get("check_interval_s"),
-            device_timeout_s=heartbeat_cfg.get("device_timeout_s"),
-            server_timeout_s=heartbeat_cfg.get("server_timeout_s"),
+            box_timeout_s=heartbeat_cfg.get("box_timeout_s"),
         )
-        
-        # 配置自动注册
-        auto_register_cfg = node_cfg.get("auto_register_config", {})
-        if auto_register_cfg:
-            settings.set_auto_register(
-                enabled=auto_register_cfg.get("enabled", True),
-                timeout_s=auto_register_cfg.get("timeout_s", 60.0),
-            )
-        
-        # 初始化管理器
-        self._manager = CloudEdgeManager(
+
+        request_timeout = node_cfg.get("request_timeout", 10.0)
+        settings.set_request_timeout(request_timeout)
+
+        logs_dir = node_cfg.get("logs_dir")
+        if logs_dir:
+            settings.logs_dir = logs_dir
+
+        self._manager = EdgeManager(
             heartbeat_interval=settings.heartbeat_check_interval_s,
-            device_timeout=settings.device_timeout_s,
-            server_timeout=settings.server_timeout_s,
-            on_task_stopped=self._on_task_stopped_callback,
+            box_timeout=settings.box_timeout_s,
+            on_box_offline=self._on_box_offline_callback,
         )
 
     # ------------------------------------------------------------------
     #  回调
     # ------------------------------------------------------------------
 
-    def _on_task_stopped_callback(self, task):
-        logger.info(
-            "Task stopped callback: task_id=%s reason=%s",
-            task.task_id,
-            task.stop_reason,
+    def _on_box_offline_callback(self, box):
+        logger.warning(
+            "BrainBox offline callback: box_id=%s", box.box_id,
         )
 
     # ------------------------------------------------------------------
-    #  辅助：统一结果处理
+    #  辅助
     # ------------------------------------------------------------------
 
     def _handle_result(self, func_name, result):
@@ -252,138 +240,133 @@ class CTest:
         return result
 
     # ==================================================================
-    #  服务器管理
+    #  类脑盒子管理
     # ==================================================================
 
-    def add_server(self, params):
-        """注册计算服务器节点到云端调度池"""
-        self.progress_callback(10, f"正在注册服务器: {params.get('server_id')}")
-        result = self._manager.add_server(
-            server_id=params["server_id"],
+    def add_brain_box(self, params):
+        """注册类脑盒子实例到边缘服务器"""
+        self.progress_callback(10, f"正在注册类脑盒子: {params.get('box_id')}")
+        result = self._manager.add_brain_box(
+            box_id=params["box_id"],
             ip_address=params["ip_address"],
-            capacity=params.get("capacity", 10),
-            tags=params.get("tags", []),
+            port=params.get("port", 9000),
             metadata=params.get("metadata", {}),
         )
-        return self._handle_result("add_server", result)
+        return self._handle_result("add_brain_box", result)
 
-    def remove_server(self, params):
-        """从调度池中安全移除指定的服务器"""
-        self.progress_callback(10, f"正在移除服务器: {params.get('server_id')}")
-        result = self._manager.remove_server(
-            server_id=params["server_id"],
-            force_stop=bool(params.get("force_stop", False)),
+    def remove_brain_box(self, params):
+        """移除类脑盒子实例"""
+        self.progress_callback(10, f"正在移除类脑盒子: {params.get('box_id')}")
+        result = self._manager.remove_brain_box(
+            box_id=params["box_id"],
         )
-        return self._handle_result("remove_server", result)
+        return self._handle_result("remove_brain_box", result)
 
-    def list_servers(self, params):
-        """获取可用的计算服务器列表及当前负载状态"""
-        self.progress_callback(10, "正在查询服务器列表")
-        result = self._manager.list_servers(
-            filter_by_status=params.get("filter_by_status", "all"),
-        )
-        return self._handle_result("list_servers", result)
+    def list_brain_boxes(self, params):
+        """获取已注册的类脑盒子列表"""
+        self.progress_callback(10, "正在查询类脑盒子列表")
+        result = self._manager.list_brain_boxes()
+        return self._handle_result("list_brain_boxes", result)
+
+    def get_brain_box_status(self, params):
+        """查询类脑盒子详细状态（远程调用 brain_box 系统状态接口）"""
+        box_id = params["box_id"]
+        self.progress_callback(10, f"正在查询类脑盒子状态: {box_id}")
+        result = self._manager.get_brain_box_status(box_id)
+        return self._handle_result("get_brain_box_status", result)
 
     # ==================================================================
-    #  设备管理
-    # ==================================================================
-
-    def add_device(self, params):
-        """注册边缘设备到管控系统"""
-        self.progress_callback(10, f"正在注册设备: {params.get('device_id')}")
-        result = self._manager.add_device(
-            device_id=params["device_id"],
-            hardware_type=params["hardware_type"],
-            is_simulated=bool(params.get("is_simulated", False)),
-            supported_streams=params.get("supported_streams", []),
-            group_id=params.get("group_id", "default"),
-            metadata=params.get("metadata", {}),
-        )
-        return self._handle_result("add_device", result)
-
-    def remove_device(self, params):
-        """从系统中注销边缘设备"""
-        self.progress_callback(10, f"正在注销设备: {params.get('device_id')}")
-        result = self._manager.remove_device(
-            device_id=params["device_id"],
-        )
-        return self._handle_result("remove_device", result)
-
-    def list_devices(self, params):
-        """获取已注册的边缘设备列表及在线状态"""
-        self.progress_callback(10, "正在查询设备列表")
-        result = self._manager.list_devices(
-            group_id=params.get("group_id", "all"),
-        )
-        return self._handle_result("list_devices", result)
-
-    # ==================================================================
-    #  核心调度
-    # ==================================================================
-
-    def assign_and_start_task(self, params):
-        """核心调度：指定边缘设备连接特定服务器执行计算任务"""
-        device_id = params["device_id"]
-        server_id = params["server_id"]
-        self.progress_callback(
-            10,
-            f"正在调度: 设备 {device_id} -> 服务器 {server_id}",
-        )
-        result = self._manager.assign_and_start_task(
-            device_id=device_id,
-            server_id=server_id,
-            task_config=params.get("task_config", {}),
-        )
-        return self._handle_result("assign_and_start_task", result)
-
-    def stop_task(self, params):
-        """中断指定设备与服务器之间的任务和数据流"""
-        device_id = params["device_id"]
-        self.progress_callback(10, f"正在停止设备 {device_id} 的任务")
-        result = self._manager.stop_task(
-            device_id=device_id,
-            reason=params.get("reason", "user_manual_stop"),
-        )
-        return self._handle_result("stop_task", result)
-
-    # ==================================================================
-    #  扩展接口
+    #  数据接收（类脑盒子 → 边缘服务器）
     # ==================================================================
 
     def heartbeat(self, params):
-        """
-        设备/服务器心跳上报
-        
-        支持自动识别和添加陌生设备/服务器。
-        心跳消息中的 metadata 字段应包含必要的注册信息。
-        """
-        target_type = params.get("target_type", "device")
-        target_id = params.get("target_id", "")
-        location = params.get("location")
-
-        self.progress_callback(10, f"心跳上报: {target_type}/{target_id}")
-
-        if target_type == "device":
-            ok = self._manager.refresh_device_heartbeat(
-                target_id,
-                location=location,
-                heartbeat_data=params,  # 传递完整心跳数据用于自动注册
-            )
-        elif target_type == "server":
-            ok = self._manager.refresh_server_heartbeat(target_id)
-        else:
-            result = {"code": -1, "msg": f"未知目标类型: {target_type}", "data": {}}
-            return self._handle_result("heartbeat", result)
-
-        result = {
-            "code": 0 if ok else -1,
-            "msg": "success" if ok else f"{target_type} {target_id} 不存在或已被移除",
-            "data": {"target_type": target_type, "target_id": target_id},
-        }
+        """接收类脑盒子心跳上报"""
+        box_id = params.get("box_id", "")
+        self.progress_callback(10, f"心跳上报: {box_id}")
+        result = self._manager.receive_heartbeat(params)
         return self._handle_result("heartbeat", result)
 
+    def drone_report(self, params):
+        """接收无人机状态上报"""
+        box_id = params.get("box_id", "")
+        self.progress_callback(10, f"无人机状态上报: {box_id}")
+        result = self._manager.receive_drone_report(params)
+        return self._handle_result("drone_report", result)
+
+    def trajectory_report(self, params):
+        """接收导航轨迹上报"""
+        box_id = params.get("box_id", "")
+        self.progress_callback(10, f"轨迹上报: {box_id}")
+        result = self._manager.receive_trajectory_report(params)
+        return self._handle_result("trajectory_report", result)
+
+    # ==================================================================
+    #  指令转发（边缘服务器 → 类脑盒子）
+    # ==================================================================
+
+    def scan_drones(self, params):
+        """转发扫描指令到指定类脑盒子"""
+        box_id = params["box_id"]
+        self.progress_callback(10, f"正在扫描无人机 (brain_box={box_id})")
+        result = self._manager.forward_scan_drones(box_id)
+        return self._handle_result("scan_drones", result)
+
+    def query_drones(self, params):
+        """转发查询指令到指定类脑盒子"""
+        box_id = params["box_id"]
+        query = {k: v for k, v in params.items() if k != "box_id"}
+        self.progress_callback(10, f"正在查询无人机 (brain_box={box_id})")
+        result = self._manager.forward_query_drones(box_id, query or None)
+        return self._handle_result("query_drones", result)
+
+    def send_command(self, params):
+        """转发控制指令到指定类脑盒子"""
+        box_id = params["box_id"]
+        device_id = params["device_id"]
+        command = params["command"]
+        self.progress_callback(
+            10, f"正在发送指令 (brain_box={box_id}, device={device_id})"
+        )
+        result = self._manager.forward_command(box_id, device_id, command)
+        return self._handle_result("send_command", result)
+
+    # ==================================================================
+    #  导航任务
+    # ==================================================================
+
+    def navigation_instruction(self, params):
+        """下发导航指令（经由类脑盒子到无人机）"""
+        box_id = params.get("box_id", "")
+        device_id = params.get("device_id", "")
+        self.progress_callback(
+            10, f"正在下发导航指令 (brain_box={box_id}, device={device_id})"
+        )
+        result = self._manager.send_navigation_instruction(params)
+        return self._handle_result("navigation_instruction", result)
+
+    def execute_trajectory(self, params):
+        """转发轨迹执行指令到类脑盒子"""
+        box_id = params.get("box_id", "")
+        trajectory_id = params.get("trajectory_id", "")
+        self.progress_callback(
+            10, f"正在执行轨迹 (brain_box={box_id}, trajectory={trajectory_id})"
+        )
+        result = self._manager.execute_trajectory(params)
+        return self._handle_result("execute_trajectory", result)
+
+    # ==================================================================
+    #  设备查询
+    # ==================================================================
+
+    def list_devices(self, params):
+        """获取所有已知无人机设备列表"""
+        box_id = params.get("box_id", "all")
+        self.progress_callback(10, "正在查询设备列表")
+        result = self._manager.list_devices(box_id=box_id)
+        return self._handle_result("list_devices", result)
+
     def get_device_info(self, params):
-        """获取设备详细信息（含流通道、当前任务和最新遥测）"""
+        """获取设备详细信息"""
         device_id = params["device_id"]
         self.progress_callback(10, f"查询设备详情: {device_id}")
         info = self._manager.get_device_info(device_id)
@@ -393,58 +376,9 @@ class CTest:
             result = {"code": 0, "msg": "success", "data": info}
         return self._handle_result("get_device_info", result)
 
-    def get_task_info(self, params):
-        """查询任务详情（含计算结果列表）"""
-        task_id = params["task_id"]
-        self.progress_callback(10, f"查询任务详情: {task_id}")
-        info = self._manager.get_task_info(task_id)
-        if info is None:
-            result = {"code": -1, "msg": f"任务 {task_id} 不存在", "data": {}}
-        else:
-            result = {"code": 0, "msg": "success", "data": info}
-        return self._handle_result("get_task_info", result)
-
-    def update_location(self, params):
-        """设备位置上报"""
-        device_id = params["device_id"]
-        location = params.get("location", {})
-        self.progress_callback(10, f"位置上报: {device_id}")
-        ok = self._manager.refresh_device_heartbeat(device_id, location=location)
-        result = {
-            "code": 0 if ok else -1,
-            "msg": "success" if ok else f"设备 {device_id} 不存在",
-            "data": {"device_id": device_id, "location": location},
-        }
-        return self._handle_result("update_location", result)
-
-    # ==================================================================
-    #  通用数据交互接口
-    # ==================================================================
-
-    def submit_task_result(self, params):
-        """服务器提交任务计算结果（通用，result_type 标识结果类型）"""
-        task_id = params["task_id"]
-        result_type = params.get("result_type", "")
-        self.progress_callback(10, f"提交任务结果: task={task_id} type={result_type}")
-        result = self._manager.submit_task_result(
-            task_id=task_id,
-            result_type=result_type,
-            payload=params.get("payload", {}),
-            metadata=params.get("metadata", {}),
-        )
-        return self._handle_result("submit_task_result", result)
-
-    def update_device_telemetry(self, params):
-        """设备/服务器上报遥测数据（通用，telemetry_type 标识遥测类型）"""
-        device_id = params["device_id"]
-        telemetry_type = params.get("telemetry_type", "")
-        self.progress_callback(
-            10, f"遥测上报: device={device_id} type={telemetry_type}"
-        )
-        result = self._manager.update_device_telemetry(
-            device_id=device_id,
-            telemetry_type=telemetry_type,
-            data=params.get("data", {}),
-            metadata=params.get("metadata", {}),
-        )
-        return self._handle_result("update_device_telemetry", result)
+    def list_tasks(self, params):
+        """查询导航任务列表"""
+        box_id = params.get("box_id", "all")
+        self.progress_callback(10, "正在查询任务列表")
+        result = self._manager.list_tasks(box_id=box_id)
+        return self._handle_result("list_tasks", result)

@@ -1,14 +1,12 @@
 """
 核心管理模块
 """
-from .manager import CloudEdgeManager
+from .manager import EdgeManager
 from .heartbeat import HeartbeatMonitor
-from .registry import StreamRegistry
-from .node_factory import NodeFactory
+from .brain_box_client import BrainBoxClient
 
 __all__ = [
-    "CloudEdgeManager",
+    "EdgeManager",
     "HeartbeatMonitor",
-    "StreamRegistry",
-    "NodeFactory",
+    "BrainBoxClient",
 ]
