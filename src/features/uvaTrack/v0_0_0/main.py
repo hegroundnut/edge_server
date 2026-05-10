@@ -5,7 +5,7 @@ from jivf import CTest
 
 app = FastAPI(title="CloudEdgeManager Mock Platform")
 
-# --- 模拟平台初始化参数
+# --- 模拟平台初始化
 mock_node_cfg = {
     "heartbeat_config": {
         "check_interval_s": 10,
