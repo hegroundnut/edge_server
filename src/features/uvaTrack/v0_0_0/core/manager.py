@@ -246,14 +246,29 @@ class EdgeManager:
             trajectory_id = trajectory.get("trajectory_id", "")
             device_id = trajectory.get("device_id", "")
 
+            matched = False
             for task in self._tasks.values():
                 if task.trajectory_id == trajectory_id and task.status == NavigationStatus.EXECUTING:
                     task.result = trajectory
+                    matched = True
                     break
 
+            if not matched:
+                for task in self._tasks.values():
+                    if (
+                        task.box_id == box_id
+                        and task.device_id == device_id
+                        and task.status in (NavigationStatus.PENDING, NavigationStatus.EXECUTING)
+                    ):
+                        task.trajectory_id = trajectory_id
+                        task.status = NavigationStatus.EXECUTING
+                        task.result = trajectory
+                        matched = True
+                        break
+
             logger.info(
-                "Trajectory report received: box=%s trajectory=%s device=%s",
-                box_id, trajectory_id, device_id,
+                "Trajectory report received: box=%s trajectory=%s device=%s matched=%s",
+                box_id, trajectory_id, device_id, matched,
             )
             return {"code": 0, "msg": "success", "data": {"trajectory_id": trajectory_id}}
 
@@ -334,10 +349,14 @@ class EdgeManager:
 
     def send_navigation_instruction(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        下发导航指令
+        下发导航指令（异步转发）
 
-        从参数中确定目标 brain_box，创建本地任务记录，
-        并将导航指令转发给 brain_box。
+        创建本地任务记录后，在后台线程中将导航指令转发给 brain_box，
+        立即返回任务信息（status=PENDING）。
+
+        brain_box 生成轨迹后会通过 trajectory_report 回调更新任务状态，
+        如果同步等待 brain_box 响应会导致死锁：
+        edge_server 等待 brain_box → brain_box 生成轨迹后 POST 回 edge_server → 但 edge_server 被阻塞。
         """
         box_id = params.get("box_id", "")
         device_id = params.get("device_id", "")
@@ -366,27 +385,34 @@ class EdgeManager:
             )
             self._tasks[task.task_id] = task
 
-        result = self._client.navigation_instruction(
-            base_url=base_url,
-            instruction_id=instruction_id,
-            device_id=device_id,
-            target_position=target_position,
-            algorithm=algorithm,
-            parameters=parameters,
-        )
+        def _forward():
+            result = self._client.navigation_instruction(
+                base_url=base_url,
+                instruction_id=instruction_id,
+                device_id=device_id,
+                target_position=target_position,
+                algorithm=algorithm,
+                parameters=parameters,
+            )
+            with self._lock_internal:
+                if result.get("success", False):
+                    data = result.get("data", {})
+                    task.trajectory_id = data.get("trajectory_id")
+                    task.status = NavigationStatus.EXECUTING
+                    task.result = data
+                else:
+                    task.status = NavigationStatus.FAILED
+                    task.result = result
+            logger.info(
+                "Navigation instruction forwarded: task=%s box=%s device=%s success=%s",
+                task.task_id, box_id, device_id, result.get("success", False),
+            )
 
-        with self._lock_internal:
-            if result.get("success", False):
-                data = result.get("data", {})
-                task.trajectory_id = data.get("trajectory_id")
-                task.status = NavigationStatus.EXECUTING
-                task.result = data
-            else:
-                task.status = NavigationStatus.FAILED
-                task.result = result
+        thread = threading.Thread(target=_forward, daemon=True)
+        thread.start()
 
         logger.info(
-            "Navigation instruction sent: task=%s box=%s device=%s",
+            "Navigation instruction dispatched: task=%s box=%s device=%s",
             task.task_id, box_id, device_id,
         )
         return {"code": 0, "msg": "success", "data": task.to_dict()}
