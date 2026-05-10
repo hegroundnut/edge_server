@@ -1,0 +1,149 @@
+tool_package_snumber: "geou-tsapp-0001"
+tools_sync_cfgs: {
+    "uvaTrack": {
+        "0.0.0": {
+            "tool_uniq_id": "1934867764779429889",  # 保持你的唯一ID，或根据需要替换
+            "tool_desc": "云边协同管控工具：负责管理边缘设备、计算服务器池，以及设备与服务器间的路径规划任务和流媒体调度。",
+            "tool_cfg": [
+                {
+                    "FunDesc": "提供服务器节点的增删查、边缘设备的增删查、以及将设备绑定至特定服务器执行路径规划任务的核心调度能力。",
+                    "ReqParam": {
+                        "dtype": "uvaTrack",
+                        "version": "0.0.0",
+                        "subfuncs": [
+                            {
+                                "func_name": "add_server",
+                                "func_desc": "注册计算服务器节点到云端调度池",
+                                "params": {
+                                    "server_id": "服务器的唯一标识符，如 'svr_node_01'",
+                                    "ip_address": "服务器的IPv4/IPv6地址，如 '192.168.1.100'",
+                                    "capacity": "服务器最大可承载的设备连接数，整数值",
+                                    "tags": "服务器的能力标签列表，例如 ['gpu', 'path_planning']"
+                                }
+                            },
+                            {
+                                "func_name": "remove_server",
+                                "func_desc": "从调度池中安全移除指定的服务器",
+                                "params": {
+                                    "server_id": "需要移除的服务器唯一标识符",
+                                    "force_stop": "是否强制停止正在该服务器上运行的任务，布尔值"
+                                }
+                            },
+                            {
+                                "func_name": "list_servers",
+                                "func_desc": "获取可用的计算服务器列表及当前负载状态",
+                                "params": {
+                                    "filter_by_status": "状态过滤器，例如 'active', 'offline', 'all'"
+                                }
+                            },
+                            {
+                                "func_name": "add_device",
+                                "func_desc": "注册边缘设备（如机器狗、无人车）到管控系统",
+                                "params": {
+                                    "device_id": "设备的唯一标识符，如 'robot_dog_nx_01'",
+                                    "hardware_type": "硬件型号，如 'jetson_xavier_nx'",
+                                    "is_simulated": "是否为纯代码测试的虚拟设备，布尔值",
+                                    "supported_streams": "设备支持的上行数据流类型，例如 ['video', 'lidar_point_cloud']"
+                                }
+                            },
+                            {
+                                "func_name": "remove_device",
+                                "func_desc": "从系统中注销边缘设备",
+                                "params": {
+                                    "device_id": "需要注销的设备唯一标识符"
+                                }
+                            },
+                            {
+                                "func_name": "list_devices",
+                                "func_desc": "获取已注册的边缘设备列表及在线状态",
+                                "params": {
+                                    "group_id": "按组查询设备，传入 'all' 表示查询所有"
+                                }
+                            },
+                            {
+                                "func_name": "assign_and_start_task",
+                                "func_desc": "核心调度：指定边缘设备连接特定服务器，下发路径规划及计算任务",
+                                "params": {
+                                    "device_id": "发起请求的边缘设备ID",
+                                    "server_id": "分配给该设备的计算服务器ID",
+                                    "task_config": {
+                                        "algorithm": "期望运行的路径规划算法，如 'a_star_optimized'",
+                                        "frequency_hz": "期望的控制/推理频率（Hz），整数值",
+                                        "enable_video_stream": "是否开启视频流回传，布尔值",
+                                        "stream_port": "流媒体数据的传输端口，整数值",
+                                        "custom_payloads": {
+                                          "map_resolution": 0.05,
+                                          "enable_local_slm": true,
+                                          "start_point": { "lat": 30.27, "lng": 120.15, "alt": 10.0 },
+                                          "end_point": { "lat": 30.28, "lng": 120.16, "alt": 10.0 },
+                                          "nav_params": { "obstacle_avoidance": true, "max_speed_m_s": 5.0 }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "func_name": "stop_task",
+                                "func_desc": "中断指定设备与服务器之间的任务和数据流",
+                                "params": {
+                                    "device_id": "需要停止任务的设备ID",
+                                    "reason": "停止任务的原因记录，例如 'user_manual_stop' 或 'device_offline'"
+                                }
+                            },
+                            {
+                                "func_name": "heartbeat",
+                                "func_desc": "设备或服务器心跳上报，维持在线状态并可附带位置信息",
+                                "params": {
+                                    "target_type": "目标类型，'device' 或 'server'",
+                                    "target_id": "设备或服务器的唯一标识符",
+                                    "location": "可选，设备位置信息字典，如 {'lat': 30.27, 'lng': 120.15, 'alt': 5.0}"
+                                }
+                            },
+                            {
+                                "func_name": "get_device_info",
+                                "func_desc": "获取设备详细信息，包含流通道状态和当前任务",
+                                "params": {
+                                    "device_id": "需要查询的设备唯一标识符"
+                                }
+                            },
+                            {
+                                "func_name": "get_task_info",
+                                "func_desc": "查询指定任务的详细信息",
+                                "params": {
+                                    "task_id": "任务唯一标识符"
+                                }
+                            },
+                            {
+                                "func_name": "update_location",
+                                "func_desc": "设备位置上报，同时刷新心跳",
+                                "params": {
+                                    "device_id": "设备的唯一标识符",
+                                    "location": "位置信息字典，如 {'lat': 30.27, 'lng': 120.15, 'alt': 5.0}"
+                                }
+                            },
+                            {
+                                "func_name": "submit_task_result",
+                                "func_desc": "服务器提交任务计算结果（通用接口，result_type 标识结果类型，payload 为具体数据）",
+                                "params": {
+                                    "task_id": "任务唯一标识符",
+                                    "result_type": "结果类型标识，如 'trajectory', 'detection', 'analysis' 等",
+                                    "payload": "结果数据字典，格式由调用方自定义（如轨迹数据、检测结果等）",
+                                    "metadata": "可选的附加元数据字典，如 {'source': 'brain_box_01'}"
+                                }
+                            },
+                            {
+                                "func_name": "update_device_telemetry",
+                                "func_desc": "设备/服务器上报遥测数据（通用接口，telemetry_type 标识遥测类型，data 为具体数据）",
+                                "params": {
+                                    "device_id": "设备的唯一标识符",
+                                    "telemetry_type": "遥测类型标识，如 'drone_status', 'position', 'sensor', 'lidar' 等",
+                                    "data": "遥测数据字典，格式由上报方自定义（如位置、速度、电量等）",
+                                    "metadata": "可选的附加元数据字典，如 {'source': 'mavlink'}"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}

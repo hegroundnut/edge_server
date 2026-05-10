@@ -1,0 +1,126 @@
+# """要同步的工具参数定义
+# 和tool_sync2plat.py文件配套使用，方便快速将工具参数和工具文件同步到平台
+# 【配置项支持多工具的多版本】
+# tool_package_snumber:         <必填, 工具在平台的功能编号, 平台上得到>
+# tools_sync_cfgs               <必填, 用于各个工具的快速同步, 包括代码和配置>
+# tool_uniq_id                  <工具身份识别, 从平台申请后得到>
+# tool_name:                    <工具名称, 和平台保持一致>
+# tool_version:                 <工具版本, 和平台保持一致>
+# tool_desc:                    <工具描述, 写给你自己看的>
+# is_sync:                      <是否同步到平台, 0: 不同步, 1: 同步>
+# tool_cfg:                     工具下的各个功能函数定义, 包括函数名、描述、入参
+# {
+#     "<tool_name>": {
+#         "<tool_version>": {
+#             "tool_uniq_id": "<tool_uniq_id>",
+#             "tool_cfg": [
+#                 {
+#                     "FunDesc": "<tool_desc>",
+#                     "ReqParam": {
+#                         "dtype": "<tool_name>",
+#                         "version": "<tool_version>",
+#                         "subfuncs": [
+#                             {
+#                                 "func_name": "代码功能函数名称",
+#                                 "func_desc": "描述功能的作用",
+#                                 "params": {
+#                                       "<函数的入参1>": "<函数的入参1的值>",
+#                                       "<函数的入参2>": "<函数的入参2的值>"
+#                                  }
+#                             },
+#                             {
+#                               根据需求, 复用此结构添加其他功能函数......
+#                             }
+#                         ]
+#                     }
+#                 }
+#             ]
+#         }
+#     },
+#      "<tool_name2>": {
+#         "<tool_version2>": {
+#             "tool_uniq_id": "<tool_uniq_id2>",
+#             "tool_cfg": [
+#                 {
+#                     "FunDesc": "<tool_desc2>",
+#                     "ReqParam": {
+#                         "dtype": "<tool_name2>",
+#                         "version": "<tool_version2>",
+#                         "subfuncs": [
+#                             {
+#                                 "func_name": "代码功能函数名称",
+#                                 "func_desc": "描述功能的作用",
+#                                 "params": {
+#                                       "<函数的入参1>": "<函数的入参1的值>",
+#                                       "<函数的入参2>": "<函数的入参2的值>"
+#                                  }
+#                             },
+#                             {
+#                               根据需求, 复用此结构添加其他功能函数......
+#                             }
+#                         ]
+#                     }
+#                 }
+#             ]
+#         }
+#      }
+# }
+
+
+tool_package_snumber: "ds_tpsvr_0003_GPU"
+tools_sync_cfgs: {
+    "demo": {
+        "0.0.0": {
+            "tool_uniq_id": "2046762615821168642",
+            "tool_desc": "演示示例",
+            "tool_cfg": [
+                {
+                    "FunDesc": "用于demo的演示示例",
+                    "ReqParam": {
+                        "dtype": "demo",
+                        "version": "0.0.0",
+                        "subfuncs": [
+                            {
+                                "func_name": "sum",
+                                "func_desc": "计算a+b之和",
+                                "params": {
+                                    "a": 0,
+                                    "b": 0
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    # TODO: 完善你的工具配置函数, 请即使更新
+    "<YOUR_TOOLS>": {
+        "<YOUR_TOOLS_VERSION>": {
+            "tool_uniq_id": "<YOUR_TOOLS_UNIQ_ID>",
+            "tool_desc": "<YOUR_TOOLS_DESC>",
+            "tool_cfg": [
+                {
+                    "FunDesc": "<YOUR_TOOLS_FUNDESC>",
+                    "ReqParam": {
+                        "dtype": "<YOUR_TOOLS>",
+                        "version": "<YOUR_TOOLS_VERSION>",
+                        "subfuncs": [
+                            {
+                                "func_name": "代码功能函数名称",
+                                "func_desc": "描述功能的作用",
+                                "params": {
+                                      "<函数的入参1>": "<函数的入参1的值>",
+                                      "<函数的入参2>": "<函数的入参2的值>"
+                                 }
+                            },
+                            {
+                              根据需求, 复用此结构添加其他功能函数......
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
