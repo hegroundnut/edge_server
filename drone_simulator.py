@@ -112,25 +112,19 @@ class DroneHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    # ── GET ──
-
-    def do_GET(self):
-        if self.path == "/heartbeat":
-            assert _drone is not None
-            self._send_json(_drone.heartbeat_info())
-        elif self.path == "/status":
-            assert _drone is not None
-            self._send_json({"status": "ok", "drone": _drone.heartbeat_info()})
-        else:
-            self._send_json({"error": "not found"}, 404)
-
-    # ── POST ──
+    # ── 全部使用 POST ──
 
     def do_POST(self):
         assert _drone is not None
         data = self._read_json()
 
-        if self.path == "/navigate":
+        if self.path == "/heartbeat":
+            self._send_json(_drone.heartbeat_info())
+
+        elif self.path == "/status":
+            self._send_json({"status": "ok", "drone": _drone.heartbeat_info()})
+
+        elif self.path == "/navigate":
             target = data.get("target_position", data)
             result = _drone.navigate_to(target)
             self._send_json(result)
@@ -232,8 +226,8 @@ def main():
     # 启动 HTTP 服务
     server = HTTPServer(("0.0.0.0", args.port), DroneHandler)
     print(f"HTTP 服务已启动: http://0.0.0.0:{args.port}")
-    print("  GET  /heartbeat  — 获取心跳信息")
-    print("  GET  /status     — 获取状态")
+    print("  POST /heartbeat  — 获取心跳信息")
+    print("  POST /status     — 获取状态")
     print("  POST /navigate   — 接收导航指令 {'target_position': {'latitude':..., 'longitude':..., 'altitude':...}}")
     print("  POST /command    — 接收控制指令")
     print()
