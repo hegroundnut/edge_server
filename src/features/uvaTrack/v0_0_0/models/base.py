@@ -4,31 +4,24 @@
 from enum import Enum
 
 
+class BrainBoxStatus(Enum):
+    """类脑盒子状态"""
+    ONLINE = "online"
+    OFFLINE = "offline"
+    ERROR = "error"
+
+
 class DeviceStatus(Enum):
-    """设备状态"""
+    """无人机设备状态"""
     ONLINE = "online"
     OFFLINE = "offline"
     BUSY = "busy"
     ERROR = "error"
 
 
-class ServerStatus(Enum):
-    """服务器状态"""
-    ONLINE = "online"
-    OFFLINE = "offline"
-    BUSY = "busy"
-    ERROR = "error"
-
-
-class TaskStatus(Enum):
-    """任务状态"""
-    RUNNING = "running"
+class NavigationStatus(Enum):
+    """导航任务状态"""
+    PENDING = "pending"
+    EXECUTING = "executing"
     COMPLETED = "completed"
     FAILED = "failed"
-    STOPPED = "stopped"
-
-
-class ChannelType(Enum):
-    """流通道类型"""
-    SIGNALING = "signaling"  # 信令通道（低频小包）
-    MEDIA = "media"          # 媒体通道（高带宽数据）

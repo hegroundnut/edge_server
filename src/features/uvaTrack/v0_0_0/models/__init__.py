@@ -1,20 +1,16 @@
 """
 数据模型模块
 """
-from .base import DeviceStatus, ServerStatus, TaskStatus, ChannelType
-from .device import EdgeDevice
-from .server import ServerNode
-from .task import TaskRecord, StreamChannel, TaskResult, DeviceTelemetry
+from .base import BrainBoxStatus, DeviceStatus, NavigationStatus
+from .brain_box import BrainBoxNode
+from .device import DroneDevice
+from .task import NavigationTask
 
 __all__ = [
+    "BrainBoxStatus",
     "DeviceStatus",
-    "ServerStatus",
-    "TaskStatus",
-    "ChannelType",
-    "EdgeDevice",
-    "ServerNode",
-    "TaskRecord",
-    "StreamChannel",
-    "TaskResult",
-    "DeviceTelemetry",
+    "NavigationStatus",
+    "BrainBoxNode",
+    "DroneDevice",
+    "NavigationTask",
 ]
