@@ -24,6 +24,7 @@ class NavigationTask:
         status: 任务状态
         trajectory_id: 生成的轨迹 ID (由 brain_box 返回)
         created_at: 创建时间戳
+        submitted_at: 提交执行时间戳（调用 execute_trajectory 时设置）
         completed_at: 完成时间戳
         result: 任务结果数据
     """
@@ -37,6 +38,7 @@ class NavigationTask:
     status: NavigationStatus = NavigationStatus.PENDING
     trajectory_id: Optional[str] = None
     created_at: float = field(default_factory=time.time)
+    submitted_at: Optional[float] = None
     completed_at: Optional[float] = None
     result: Dict[str, Any] = field(default_factory=dict)
 
@@ -52,6 +54,7 @@ class NavigationTask:
             "status": self.status.value,
             "trajectory_id": self.trajectory_id,
             "created_at": self.created_at,
+            "submitted_at": self.submitted_at,
             "completed_at": self.completed_at,
             "result": dict(self.result),
         }

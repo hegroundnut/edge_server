@@ -23,5 +23,6 @@ class NavigationStatus(Enum):
     """导航任务状态"""
     PENDING = "pending"
     EXECUTING = "executing"
+    SUBMITTED = "submitted"
     COMPLETED = "completed"
     FAILED = "failed"

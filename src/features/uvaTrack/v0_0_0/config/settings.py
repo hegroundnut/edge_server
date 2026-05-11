@@ -40,12 +40,27 @@ class Settings:
         self.log_level = "INFO"
         self.log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+        # 数据库配置
+        # db_type: "sqlite" | "postgresql" (未来扩展)
+        self.db_type = os.environ.get("EDGE_DB_TYPE", "sqlite")
+        self.db_path = self.data_dir / "edge_server.db"
+        self.db_url = os.environ.get(
+            "EDGE_DB_URL",
+            f"sqlite:///{self.db_path}",
+        )
+
         self._ensure_directories()
         self._initialized = True
 
     def _ensure_directories(self) -> None:
         for directory in [self.data_dir, self.logs_dir]:
             directory.mkdir(parents=True, exist_ok=True)
+
+    def set_db_config(self, db_type: str = None, db_url: str = None) -> None:
+        if db_type is not None:
+            self.db_type = db_type
+        if db_url is not None:
+            self.db_url = db_url
 
     def set_heartbeat_config(
         self,
@@ -69,6 +84,8 @@ class Settings:
             "box_timeout_s": self.box_timeout_s,
             "request_timeout": self.request_timeout,
             "log_level": self.log_level,
+            "db_type": self.db_type,
+            "db_url": self.db_url,
         }
 
 
