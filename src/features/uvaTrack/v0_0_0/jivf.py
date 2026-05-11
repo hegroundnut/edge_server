@@ -151,7 +151,10 @@ get_device_info:
 
 list_tasks:
 {
-    "box_id": "all"
+    "box_id": "all",
+    "status": null,
+    "limit": 100,
+    "offset": 0
 }
 
 get_brain_box_status:
@@ -379,6 +382,11 @@ class CTest:
     def list_tasks(self, params):
         """查询导航任务列表"""
         box_id = params.get("box_id", "all")
+        status = params.get("status")
+        limit = params.get("limit", 100)
+        offset = params.get("offset", 0)
         self.progress_callback(10, "正在查询任务列表")
-        result = self._manager.list_tasks(box_id=box_id)
+        result = self._manager.list_tasks(
+            box_id=box_id, status=status, limit=limit, offset=offset,
+        )
         return self._handle_result("list_tasks", result)
